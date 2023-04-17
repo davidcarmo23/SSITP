@@ -19,7 +19,7 @@ var ref = db.ref("Users/")*/
 
 //conexão à base de dados mongodb
 var mongoose = require('mongoose');
-const {MONGO_URI} = require('../cert/.env')
+const {username, password, MONGO_URI} = require('../cert/.env')
 
 mongoose
   .connect(MONGO_URI)
