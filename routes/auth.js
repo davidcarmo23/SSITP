@@ -95,14 +95,14 @@ router.get('/logout', function(req, res, next) {
 router.post('/genSessionKeys', (req, res) => {
   try {
     //Diffie-Hellman
-    const group = 'modp5'; //grupo de chaves a usar
+    const group = 'modp14'; //grupo de chaves a usar
     const server = crypto.createDiffieHellman(group);
 
     //gerar par de chaves de uso único para o servidor
     const serverKey = server.generateKeys();
     const serverPublicKey = server.getPublicKey('hex');
 
-    //armazenar chave pública do user
+    //receber chave pública do user
     const clientPublicKey = req.body.clientPublicKey;
 
     //gerar chave de sessão
