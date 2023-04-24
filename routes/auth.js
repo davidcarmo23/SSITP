@@ -9,19 +9,10 @@ const bcrypt = require('bcrypt');
 //modelo de dados
 const User = require('../models/User');
 
-//métodos para modelos
+/*--------------------------------------------------métodos para modelos-----------------------------------*/
 
 //hashing do certificado antes de ser guardado na base de dados
 User.pre('save', async function(next) {
-  //verificação de certificado (necessário poder ler ficheiros)
-  
-
-  //verificação de existência de certificado
-  if (!certificate) {
-    res.status(400).send('Certificado digital inválido');
-    return;
-  }
-
   //proteger certificado 
   const user = this;
 
@@ -37,9 +28,12 @@ User.pre('save', async function(next) {
 //validação de certificado guardado na base de dados
 User.methods.isValidCertificate = async function(certificate) {
   const user = this;
+  CertReceived = await bcrypt.hash(certificate, user.Csalt);
 
-  return await bcrypt.compare(certificate, user.certificate);
+  return await bcrypt.compare(CertReceived, user.certificate);
 }
+/*-------------------------------------------------------------------------------------------------------*/
+
 
 //conexão à base de dados mongodb
 mongoose
@@ -97,19 +91,51 @@ router.get('/logout', function(req, res, next) {
   res.redirect('/auth/login');
 });
 
+//método para gerar par de chaves de uso único para o servidor
+router.post('/genSessionKeys', (req, res) => {
+  try {
+    //Diffie-Hellman
+    const group = 'modp5'; //grupo de chaves a usar
+    const server = crypto.createDiffieHellman(group);
+
+    //gerar par de chaves de uso único para o servidor
+    const serverKey = server.generateKeys();
+    const serverPublicKey = server.getPublicKey('hex');
+
+    //armazenar chave pública do user
+    const clientPublicKey = req.body.clientPublicKey;
+
+    //gerar chave de sessão
+    const sharedSecret = server.computeSecret(clientPublicKey, 'hex', 'hex');
+    return res.status(200).json({serverPublicKey, sharedSecret});
+  } catch (error) {
+    return res.status(500).json({message: "Ocorreu um erro no Diffie-Hellman"});
+  }
+});
+
+
 router.post('/register', async (req, res) => {
+  
+  //desencriptar a mensagem (dados de registo) com a chave de sessão 
+  const decipher = crypto.createDecipheriv('aes-256-cbc', req.body.sharedSecret, req.body.iv);
+  let decrypted = decipher.update(req.body.message, 'hex', 'utf8');
+  decrypted += decipher.final('utf8');
+
+
   try {
     //verificação de todos os dados inseridos
     if (
       !(
-        req.body.username &&
-        req.body.email &&
-        req.body.hashedPassword &&
-        req.body.Psalt &&
-        req.body.role &&
-        req.body.name &&
-        req.body.address &&
-        req.body.phone
+        decrypted.username &&
+        decrypted.email &&
+        decrypted.hashedPassword &&
+        decrypted.Psalt &&
+        decrypted.role &&
+        decrypted.name &&
+        decrypted.address &&
+        decrypted.phone &&
+        decrypted.certificate &&
+        decrypted.clientPublicKey
       )
     ){
       res.status(406).json({message: "Certifique-se que introduziu todos os dados!"});
@@ -117,8 +143,8 @@ router.post('/register', async (req, res) => {
 
     //verificação de utilizador existente
     if (
-      (await User.findOne({ username: req.body.username })) ||
-      (await User.findOne({ email: req.body.email }))
+      (await User.findOne({ username: decrypted.username })) ||
+      (await User.findOne({ email: decrypted.email }))
     ) {
       return res.status(406).json({message: "Dados Inválidos"});
     }
@@ -126,20 +152,32 @@ router.post('/register', async (req, res) => {
     //criação da conta
     var User = mongoose.model('User');
     var user = new User({
-      username: req.body.username,
-      email: req.body.email,
-      password: req.body.hashedPassword,
-      Psalt: req.body.Psalt,
-      role: req.body.role,
-      name: req.body.name,
-      address: req.body.address,
-      phone: req.body.phone,
+      username: decrypted.username,
+      email: decrypted.email,
+      password: decrypted.hashedPassword,
+      Psalt: decrypted.Psalt,
+      role: decrypted.role,
+      name: decrypted.name,
+      address: decrypted.address,
+      phone: decrypted.phone,
       Csalt: '',
-      certificate: '',
+      certificate: decrypted.certificate,
+      pKey: decrypted.clientPublicKey,
     });
 
-    await user.save();
-    return res.status(200).json({message: "Utilizador registado com sucesso!"});
+    //verificação de certificado introduzido
+    if (!decrypted.certificate) {
+      return res.status(400).send('Certificado digital inválido');;
+    }
+
+    //verificação de certificado válido com chave pública do utilizador
+    const CertReceived = new crypto.X509Certificate(fs.readFileSync(certificate));
+    if(CertReceived.verify(decrypted.clientPublicKey)) {
+      await user.save();
+      return res.status(200).json({message: "Utilizador registado com sucesso!"});
+    } else {
+      return res.status(400).send('Certificado digital inválido');
+    }
   } catch (error) {
     return res.status(500).json({message: "Ocorreu um erro no registo"});
   }
