@@ -1,22 +1,25 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+	<script src="https://cdn.jsdelivr.net/npm/crypto-browserify"></script>
+	<script src="../scripts/frontendauth.js"></script>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Página de Login</title>
+	<title>Página de Registo</title>
 </head>
 <body>
-	<h1>Login</h1>
-	<form action="autenticar.php" method="POST">
+	<h1>Registo</h1>
+	<div>
 		<label for="username">Nome de utilizador:</label>
 		<input type="text" id="username" name="username"><br><br>
 		<label for="password">Palavra-passe:</label>
 		<input type="password" id="password" name="password"><br><br>
-		<input type="submit" value="Entrar">
-	</form>
+		<button id="registerButton" onclick="registo()">Registo</button>
+	</div>
 	<br>
 	<a href="registar.php">Registar nova conta</a><br>
 	<a href="redefinir.php">Redefinir palavra-passe</a>
+	
 </body>
 </html>

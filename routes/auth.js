@@ -3,37 +3,11 @@ const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
-const {MONGO_URI} = require('../cert/.env')
+const {MONGO_URI} = require('../cert/env.js')
 const bcrypt = require('bcrypt');
 
 //modelo de dados
 const User = require('../models/User');
-
-/*--------------------------------------------------métodos para modelos-----------------------------------*/
-
-//hashing do certificado antes de ser guardado na base de dados
-User.pre('save', async function(next) {
-  //proteger certificado 
-  const user = this;
-
-  if (!user.isModified('certificate')) return next();
-
-  const Csalt = await bcrypt.genSalt(10);
-  user.Csalt = Csalt;
-  user.certificate = await bcrypt.hash(user.certificate, Csalt);
-
-  next();
-});
-
-//validação de certificado guardado na base de dados
-User.methods.isValidCertificate = async function(certificate) {
-  const user = this;
-  CertReceived = await bcrypt.hash(certificate, user.Csalt);
-
-  return await bcrypt.compare(CertReceived, user.certificate);
-}
-/*-------------------------------------------------------------------------------------------------------*/
-
 
 //conexão à base de dados mongodb
 mongoose
@@ -92,7 +66,7 @@ router.get('/logout', function(req, res, next) {
 });
 
 //método para gerar par de chaves de uso único para o servidor
-router.post('/genSessionKeys', (req, res) => {
+router.post('/genSessionKeys', async (req, res) => {
   try {
     //Diffie-Hellman
     const group = 'modp14'; //grupo de chaves a usar
@@ -107,7 +81,8 @@ router.post('/genSessionKeys', (req, res) => {
 
     //gerar chave de sessão
     const sharedSecret = server.computeSecret(clientPublicKey, 'hex', 'hex');
-    return res.status(200).json({serverPublicKey, sharedSecret});
+    console.log("Secret: " + sharedSecret);
+    return res.status(200).json({sharedSecret});
   } catch (error) {
     return res.status(500).json({message: "Ocorreu um erro no Diffie-Hellman"});
   }
