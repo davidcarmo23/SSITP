@@ -1,22 +1,29 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<script src="https://cdn.jsdelivr.net/npm/crypto-browserify"></script>
-	<script src="../scripts/frontendauth.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/rollups/aes.js"></script>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+	<script type="module" src="frontendauth.js"></script>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Página de Registo</title>
 </head>
+
 <body>
 	<h1>Registo</h1>
-	<div>
+	<form action="/" id="registerForm">
 		<label for="username">Nome de utilizador:</label>
 		<input type="text" id="username" name="username"><br><br>
+
+		<label for="email">Email:</label>
+		<input type="email" id="email" name="email"><br><br>
+
 		<label for="password">Palavra-passe:</label>
 		<input type="password" id="password" name="password"><br><br>
-		<button id="registerButton" onclick="registo()">Registo</button>
-	</div>
+
+		<input type="submit" value="Submit">Registar</button>
+	</form>
 	<br>
 	<a href="registar.php">Registar nova conta</a><br>
 	<a href="redefinir.php">Redefinir palavra-passe</a>

@@ -13,9 +13,13 @@ const UserSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    role:{
+    Usalt:{
         type: String,
-        required: true
+        required: true,
+    },
+    Esalt:{
+        type: String,
+        required: true,
     },
     Psalt:{
         type: String,
@@ -30,22 +34,8 @@ const UserSchema = new mongoose.Schema({
         required: true
     },
 });
-
-//hashing do certificado antes de ser guardado na base de dados
-UserSchema.pre('save', async function(next) {
-    //proteger certificado 
-    const user = this;
   
-    if (!user.isModified('certificate')) return next();
-  
-    const Csalt = await bcrypt.genSalt(10);
-    user.Csalt = Csalt;
-    user.certificate = await bcrypt.hash(user.certificate, Csalt);
-  
-    next();
-  });
-  
-  //validação de certificado guardado na base de dados
+//validação de certificado guardado na base de dados
   UserSchema.methods.isValidCertificate = async function(certificate) {
     const user = this;
     CertReceived = await bcrypt.hash(certificate, user.Csalt);

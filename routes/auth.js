@@ -2,12 +2,19 @@
 const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
+const axios = require('axios');
 const mongoose = require('mongoose');
 const {MONGO_URI} = require('../cert/env.js')
 const bcrypt = require('bcrypt');
+const uuid = require('uuid');
 
 //modelo de dados
 const User = require('../models/User');
+
+//variaveis temporárias
+let ivs = {};
+let ephemeralKeys = {};
+
 
 //conexão à base de dados mongodb
 mongoose
@@ -23,7 +30,7 @@ mongoose
 
 
 
-router.post('/login', async (req, res) => {
+axios.post('/login', async (req, res) => {
   try {
     if (!(req.body.username) || !(req.body.hashedPassword)) {
       res.status(406).json("É necessário introduzir todos os dados");
@@ -60,40 +67,44 @@ router.post('/login', async (req, res) => {
   }
 });
 
-router.get('/logout', function(req, res, next) {
+axios.get('/logout', function(req, res, next) {
   req.logout();
   res.redirect('/auth/login');
 });
 
 //método para gerar par de chaves de uso único para o servidor
-router.post('/genSessionKeys', async (req, res) => {
+axios.post('/genEphemeralKey', async (req, res) => {
   try {
-    //Diffie-Hellman
-    const group = 'modp14'; //grupo de chaves a usar
-    const server = crypto.createDiffieHellman(group);
+    const serverKeyPair = crypto.generateKeyPairSync('rsa', {
+      modulusLength: 4096,
+      publicKeyEncoding: {
+        type: 'spki',
+        format: 'pem',
+      },
+      privateKeyEncoding: {
+        type: 'pkcs8',
+        format: 'pem',
+      },
+    });
 
-    //gerar par de chaves de uso único para o servidor
-    const serverKey = server.generateKeys();
-    const serverPublicKey = server.getPublicKey('hex');
+    let iv = crypto.randomBytes(16);
+    iv = iv.toString('hex');
+    let userID = uuid.v4();
+    //guardar o iv para a sessão
+    ivs[userID] = iv;
 
-    //receber chave pública do user
-    const clientPublicKey = req.body.clientPublicKey;
-
-    //gerar chave de sessão
-    const sharedSecret = server.computeSecret(clientPublicKey, 'hex', 'hex');
-    console.log("Secret: " + sharedSecret);
-    return res.status(200).json({sharedSecret});
+    res.status(200).json({serverPublicKey: serverKeyPair.publicKey, iv: iv, userID: userID});
   } catch (error) {
-    return res.status(500).json({message: "Ocorreu um erro no Diffie-Hellman"});
+    return res.status(500).json({message: "Ocorreu um erro a gerar a chave de sessão"});
   }
 });
 
 
-router.post('/register', async (req, res) => {
+axios.post('/register', async (req, res) => {
   
   //desencriptar a mensagem (dados de registo) com a chave de sessão 
-  const decipher = crypto.createDecipheriv('aes-256-cbc', req.body.sharedSecret, req.body.iv);
-  let decrypted = decipher.update(req.body.message, 'hex', 'utf8');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', req.body.sharedSecret, ivs[req.body.userID]);
+  let decrypted = decipher.update(req.body.data, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
 
 
@@ -101,16 +112,14 @@ router.post('/register', async (req, res) => {
     //verificação de todos os dados inseridos
     if (
       !(
-        decrypted.username &&
-        decrypted.email &&
+        decrypted.hashedUsername &&
+        decrypted.hashedEmail &&
         decrypted.hashedPassword &&
+        decrypted.hashedCertificate &&
+        decrypted.Usalt &&
+        decrypted.Esalt &&
         decrypted.Psalt &&
-        decrypted.role &&
-        decrypted.name &&
-        decrypted.address &&
-        decrypted.phone &&
-        decrypted.certificate &&
-        decrypted.clientPublicKey
+        decrypted.Csalt
       )
     ){
       res.status(406).json({message: "Certifique-se que introduziu todos os dados!"});
@@ -118,8 +127,8 @@ router.post('/register', async (req, res) => {
 
     //verificação de utilizador existente
     if (
-      (await User.findOne({ username: decrypted.username })) ||
-      (await User.findOne({ email: decrypted.email }))
+      (await User.findOne({ username: decrypted.hashedUsername })) ||
+      (await User.findOne({ email: decrypted.hashedEmail }))
     ) {
       return res.status(406).json({message: "Dados Inválidos"});
     }
@@ -127,32 +136,23 @@ router.post('/register', async (req, res) => {
     //criação da conta
     var User = mongoose.model('User');
     var user = new User({
-      username: decrypted.username,
-      email: decrypted.email,
+      username: decrypted.hashedUsername,
+      email: decrypted.hashedEmail,
       password: decrypted.hashedPassword,
+      certificate: decrypted.hashedCertificate,
+      Usalt: decrypted.Usalt,
+      Esalt: decrypted.Esalt,
       Psalt: decrypted.Psalt,
-      role: decrypted.role,
-      name: decrypted.name,
-      address: decrypted.address,
-      phone: decrypted.phone,
-      Csalt: '',
-      certificate: decrypted.certificate,
-      pKey: decrypted.clientPublicKey,
+      Csalt: decrypted.Csalt
     });
 
     //verificação de certificado introduzido
-    if (!decrypted.certificate) {
+    if (!decrypted.hashedCertificate) {
       return res.status(400).send('Certificado digital inválido');;
     }
-
-    //verificação de certificado válido com chave pública do utilizador
-    const CertReceived = new crypto.X509Certificate(fs.readFileSync(certificate));
-    if(CertReceived.verify(decrypted.clientPublicKey)) {
-      await user.save();
-      return res.status(200).json({message: "Utilizador registado com sucesso!"});
-    } else {
-      return res.status(400).send('Certificado digital inválido');
-    }
+    
+    await user.save();
+    return res.status(200).json({message: "Utilizador registado com sucesso!"});
   } catch (error) {
     return res.status(500).json({message: "Ocorreu um erro no registo"});
   }
