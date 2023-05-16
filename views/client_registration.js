@@ -51,11 +51,11 @@ form.addEventListener('submit', async (e) => {
     //Encriptar os dados de registo
     const cipher = crypto.createCipheriv('aes-256-cbc', sharedSecret, iv);
     let encrypted = cipher.update(JSON.stringify({hashedUsername, hashedEmail, hashedPassword, hashedCertificate, Usalt, Esalt, Psalt, Csalt}), 'utf8', 'base64');
-    encrypted += cipher.final('utf8');
+    const encryption = encrypted + cipher.final('utf8');
 
     //Enviar os dados encriptados para o servidor
     const response2 = await axios.post('/register',{
-        data: encrypted,
+        data: encryption,
         uuid: uuid,
     })
 
