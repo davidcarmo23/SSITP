@@ -9,36 +9,45 @@ form.addEventListener('submit', async (e) => {
     //adicionar método de anexar certificado digital
     const certificate = document.getElementById('certificate').value;
 
-    //Gerar chaves do cliente
-    const clientPKey = document.getElementById('clientPKey').value;
-    const clientSKey = document.getElementById('clientSKey').value;
+    //Obter chaves do cliente através do certificado
+    const certificatePromise = crypto.getCertificate(certificate);
 
-    //Cifrar dados e assinar com a chave privada
+    const clientPKey = certificatePromise.publicKey.export({format: 'pem', type: 'spki'});
+    const clientSKey = certificatePromise.privateKey.export({format: 'pem', type: 'pkcs8'});
+
+    //Retirar chave pública do certificado digital do servidor
+    const Servercertificate = window.crypto.subtle.getPublicKey(await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(window.location.href)));
+    const serverPKey = Servercertificate.then((publicKey) => {
+        return publicKey;
+      }).catch((error) => {
+        console.error('Error:', error);
+      });
+    
+    //Calcular o segredo partilhado e gerar iv
+    //Provavelmente errado
+    const sharedSecret = crypto.diffieHellman(serverPKey).computeSecret(clientSKey);
     const iv = crypto.getRandomValues(new Uint8Array(16));
 
+    //retirar salt do servidor associado ao utilizador ????
+    const response = await axios.post('/getSalts',{
+        username: username,
+    })
 
-    //Calcular o segredo partilhado
-    const sharedSecret = crypto.diffieHellman(certificatePromise).computeSecret(clientSKey);
-    
     //dar hash ao username e ao email com o salt
-    const Usalt = crypto.randomBytes(16).toString('hex');
     const hashedUsername = crypto.createHash('sha256').update(username + Usalt).digest('hex');
 
     //dar hash à password com o salt 
-    const Psalt = crypto.randomBytes(16).toString('hex');
     const hashedPassword =  crypto.createHash('sha256').update(password + Psalt).digest('hex');
 
     //dar hash ao certificado com o salt
-    const Csalt = crypto.randomBytes(16).toString('hex');
     const hashedCertificate =  crypto.createHash('sha256').update(certificate + Csalt).digest('hex');
 
     //dar hash à chave pública com o salt	
-    const PKeySalt = crypto.randomBytes(16).toString('hex');
     const hashedPKey =  crypto.createHash('sha256').update(clientPKey + PKeySalt).digest('hex');
 
     //Encriptar os dados de registo
     const cipher = crypto.createCipheriv('aes-256-cbc', sharedSecret, iv);
-    let encrypted = cipher.update(JSON.stringify({hashedUsername, hashedPassword, hashedCertificate,hashedPKey, Usalt, Psalt, Csalt, PKeySalt}), 'utf8', 'base64');
+    let encrypted = cipher.update(JSON.stringify({hashedUsername, hashedPassword, hashedCertificate,hashedPKey}), 'utf8', 'base64');
     const encryption = encrypted + cipher.final('utf8');
 
     //criar assinatura e assinar os dados encriptados
@@ -48,7 +57,7 @@ form.addEventListener('submit', async (e) => {
      
 
     //Enviar os dados encriptados e assinatura para o servidor
-    const response2 = await axios.post('/register',{
+    const response2 = await axios.post('/login',{
         data: encryption,
         signature: signature,
     })

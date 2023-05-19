@@ -3,7 +3,7 @@
 <head>
 	<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/rollups/aes.js"></script>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-	<script type="module" src="frontendauth.js"></script>
+	<script type="module" src="client_registration.js"></script>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -22,11 +22,17 @@
 		<label for="password">Palavra-passe:</label>
 		<input type="password" id="password" name="password"><br><br>
 
+		<label for="password2">Confirmar Palavra-passe:</label>
+		<input type="password" id="password2" name="password2"><br><br>
+
+		<label for="certificate">Introduza o seu certificado:</label>
+		<input type="file" id="certificate" name="certificate"><br><br>
+
 		<input type="submit" value="Submit">Registar</button>
 	</form>
 	<br>
-	<a href="registar.php">Registar nova conta</a><br>
-	<a href="redefinir.php">Redefinir palavra-passe</a>
+	<a href="registar.html">Já tenho Conta!</a><br>
+	<a href="redefinir_conta.html">Redefinir Dados de Acesso</a>
 	
 </body>
 </html>

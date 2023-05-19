@@ -10,7 +10,7 @@ form.addEventListener('submit', async (e) => {
     //adicionar método de anexar certificado digital
     const certificate = document.getElementById('certificate').value;
 
-    //Gerar chaves do cliente
+    //Gerar chaves temporaária do cliente
     const clientKeys = crypto.generateKeyPairSync('rsa', {
         modulusLength: 4096,
         publicKeyEncoding: {
@@ -39,7 +39,7 @@ form.addEventListener('submit', async (e) => {
     const Usalt = crypto.randomBytes(16).toString('hex');
     const Esalt = crypto.randomBytes(16).toString('hex');
     const hashedUsername = crypto.createHash('sha256').update(username + Usalt).digest('hex');
-    const hashedEmail = crypto.createHash('sha256').update(username + Esalt).digest('hex');
+    const hashedEmail = crypto.createHash('sha256').update(email + Esalt).digest('hex');
     //dar hash à password com o salt 
     const Psalt = crypto.randomBytes(16).toString('hex');
     const hashedPassword =  crypto.createHash('sha256').update(password + Psalt).digest('hex');

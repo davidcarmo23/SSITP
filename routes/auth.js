@@ -146,11 +146,6 @@ axios.post('/register', async (req, res) => {
       Csalt: decrypted.Csalt
     });
 
-    //verificação de certificado introduzido
-    if (!decrypted.hashedCertificate) {
-      return res.status(400).send('Certificado digital inválido');;
-    }
-    
     await user.save();
     return res.status(200).json({message: "Utilizador registado com sucesso!"});
   } catch (error) {
