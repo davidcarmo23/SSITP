@@ -30,7 +30,7 @@ mongoose
 
 
 
-axios.post('/login', async (req, res) => {
+  router.post('/login', async (req, res) => {
   try {
     if (!(req.body.username) || !(req.body.hashedPassword)) {
       res.status(406).json("É necessário introduzir todos os dados");
@@ -67,13 +67,13 @@ axios.post('/login', async (req, res) => {
   }
 });
 
-axios.get('/logout', function(req, res, next) {
+router.get('/logout', function(req, res, next) {
   req.logout();
   res.redirect('/auth/login');
 });
 
 //método para gerar par de chaves de uso único para o servidor
-axios.post('/genEphemeralKey', async (req, res) => {
+router.post('/genEphemeralKey', async (req, res) => {
   try {
     const serverKeyPair = crypto.generateKeyPairSync('rsa', {
       modulusLength: 4096,
@@ -100,7 +100,7 @@ axios.post('/genEphemeralKey', async (req, res) => {
 });
 
 
-axios.post('/register', async (req, res) => {
+router.post('/register', async (req, res) => {
   
   //desencriptar a mensagem (dados de registo) com a chave de sessão 
   const decipher = crypto.createDecipheriv('aes-256-cbc', req.body.sharedSecret, ivs[req.body.userID]);
