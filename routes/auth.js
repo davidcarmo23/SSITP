@@ -73,27 +73,43 @@ router.get('/logout', function(req, res, next) {
 });
 
 //método para gerar par de chaves de uso único para o servidor
-router.post('/genEphemeralKey', async (req, res) => {
+router.post('/establishCommon', async (req, res) => {
   try {
-    const serverKeyPair = crypto.generateKeyPairSync('rsa', {
-      modulusLength: 4096,
+    //gerar par de chaves de uso único para o servidor ECDH
+    const serverKeyPair = await crypto.generateKeyPairSync('ec', {
+      namedCurve: 'P-256',
       publicKeyEncoding: {
         type: 'spki',
-        format: 'pem',
+        format: 'pem'
       },
       privateKeyEncoding: {
         type: 'pkcs8',
-        format: 'pem',
-      },
+        format: 'pem'
+      }
     });
+    //Chaves Servidor
+    console.log(serverKeyPair)
 
+    //gerar iv para a sessão
     let iv = crypto.randomBytes(16);
     iv = iv.toString('hex');
-    let userID = uuid.v4();
-    //guardar o iv para a sessão
-    ivs[userID] = iv;
 
-    res.status(200).json({serverPublicKey: serverKeyPair.publicKey, iv: iv, userID: userID});
+    //gerar uuid do utilizador para a sessão
+    let userID = uuid.v4();
+    console.log("UUID")
+    console.log(userID)
+    console.log("IV")
+    console.log(iv)
+    console.log("Chave pública efémera do cliente")
+    console.log(req.body.clientPublicKey)
+
+    //guardar o iv e a chave pública efémera para a sessão 
+    ivs[userID] = iv;
+    ephemeralPKeys[userID] = req.body.clientPublicKey
+    ephemeralSKeys[userID] = serverKeyPair.privateKey;
+    let chavePublicaServidor = serverKeyPair.publicKey;
+
+    res.status(200).json({chavePublicaServidor, iv, userID});
   } catch (error) {
     return res.status(500).json({message: "Ocorreu um erro a gerar a chave de sessão"});
   }
@@ -102,12 +118,19 @@ router.post('/genEphemeralKey', async (req, res) => {
 
 router.post('/register', async (req, res) => {
   
-  //desencriptar a mensagem (dados de registo) com a chave de sessão 
-  const decipher = crypto.createDecipheriv('aes-256-cbc', req.body.sharedSecret, ivs[req.body.userID]);
+  //gerar segredo partilhado utilizando a chave privada efémera do servidor e a chave pública efémera do cliente
+  const sharedSecret = crypto.diffieHellman({
+    privateKey: ephemeralSKeys[req.body.userID],
+    publicKey: ephemeralPKeys[req.body.userID]
+  });
+
+  //desencriptar a mensagem (dados de registo) com a chave de sessão e o iv
+  const decipher = crypto.createDecipheriv('aes-256-cbc', sharedSecret, ivs[req.body.userID]);
   let decrypted = decipher.update(req.body.data, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
 
-
+  console.log(JSON.parse(decrypted))
+  
   try {
     //verificação de todos os dados inseridos
     if (
@@ -147,6 +170,10 @@ router.post('/register', async (req, res) => {
     });
 
     await user.save();
+    //remover iv e chave efémera da sessão associados
+    ivs[req.body.userID] = null;
+    ephemeralKeys[req.body.userID] = null;
+
     return res.status(200).json({message: "Utilizador registado com sucesso!"});
   } catch (error) {
     return res.status(500).json({message: "Ocorreu um erro no registo"});
