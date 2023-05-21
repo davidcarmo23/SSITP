@@ -3,6 +3,10 @@ const path = require('path');
 const https = require('https')
 const fs = require('fs')
 const app = express()
+const cors = require("cors")
+
+
+
 const port = 3000
 // custom middleware
 const authRoute = require('../routes/auth')
@@ -19,7 +23,15 @@ mongoose
     console.error(error);
     process.exit(1);
   });
-
+  
+  app.use(
+    cors({
+      credentials: true,
+      origin: "http://localhost:3000",
+      optionsSucessStatus: 200,
+    })
+  ); 
+  
 app.use(express.static('../views')); // pasta com arquivos estáticos (CSS, imagens, etc.)
 app.use(express.urlencoded({ extended: true })); // parser para request body
 
@@ -31,8 +43,11 @@ app.get('../scripts/frontendauth.js', (req, res) => {
 app.use('/', authRoute)
 // rota para página de login
 app.get('/register', (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
   res.sendFile(path.resolve('../views/register.html'));
 });
+
+
 
 https.createServer(
     {

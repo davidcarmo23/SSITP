@@ -2,10 +2,8 @@
 const crypto = require('crypto');
 const express = require('express');
 const router = express.Router();
-const axios = require('axios');
 const mongoose = require('mongoose');
 const {MONGO_URI} = require('../cert/env.js')
-const bcrypt = require('bcrypt');
 const uuid = require('uuid');
 
 //modelo de dados
@@ -76,17 +74,15 @@ router.get('/logout', function(req, res, next) {
 router.post('/establishCommon', async (req, res) => {
   try {
     //gerar par de chaves de uso único para o servidor ECDH
-    const serverKeyPair = await crypto.generateKeyPairSync('ec', {
-      namedCurve: 'P-256',
-      publicKeyEncoding: {
-        type: 'spki',
-        format: 'pem'
+    const serverKeyPair = await crypto.subtle.generateKey(
+      {
+      name: 'ECDH',
+      namedCurve: 'P-256'
       },
-      privateKeyEncoding: {
-        type: 'pkcs8',
-        format: 'pem'
-      }
-    });
+      false,
+      ['deriveKey']
+    ).catch(err => console.log(err));
+
     //Chaves Servidor
     console.log(serverKeyPair)
 
@@ -96,18 +92,17 @@ router.post('/establishCommon', async (req, res) => {
 
     //gerar uuid do utilizador para a sessão
     let userID = uuid.v4();
-    console.log("UUID")
-    console.log(userID)
-    console.log("IV")
-    console.log(iv)
+    console.log("DATA")
+    console.log(req.body)
+
     console.log("Chave pública efémera do cliente")
-    console.log(req.body.clientPublicKey)
+    console.log(req.body.clientPubKey)
 
     //guardar o iv e a chave pública efémera para a sessão 
     ivs[userID] = iv;
-    ephemeralPKeys[userID] = req.body.clientPublicKey
-    ephemeralSKeys[userID] = serverKeyPair.privateKey;
-    let chavePublicaServidor = serverKeyPair.publicKey;
+    ephemeralPKeys[userID] = req.body.clientPubKey
+    ephemeralSKeys[userID] = serverKeyPair.privateKey
+    let chavePublicaServidor = serverKeyPair.publicKey
 
     res.status(200).json({chavePublicaServidor, iv, userID});
   } catch (error) {
@@ -118,17 +113,27 @@ router.post('/establishCommon', async (req, res) => {
 
 router.post('/register', async (req, res) => {
   
+  let clientPubKey = ephemeralPKeys[req.body.userID]
+  let serverPrivateKey = ephemeralSKeys[req.body.userID]
+  let iv = ivs[req.body.userID]
+
   //gerar segredo partilhado utilizando a chave privada efémera do servidor e a chave pública efémera do cliente
-  const sharedSecret = crypto.diffieHellman({
-    privateKey: ephemeralSKeys[req.body.userID],
-    publicKey: ephemeralPKeys[req.body.userID]
-  });
+  const sharedSecret = await crypto.subtle.deriveKey(
+    {
+    name: 'ECDH',
+    public: clientPubKey
+    },
+    serverPrivateKey,
+    {
+    name: 'AES-CBC',
+    length: 256
+    },
+    false,
+    ['encrypt', 'decrypt']
+  ).catch(err => console.log(err));
 
   //desencriptar a mensagem (dados de registo) com a chave de sessão e o iv
-  const decipher = crypto.createDecipheriv('aes-256-cbc', sharedSecret, ivs[req.body.userID]);
-  let decrypted = decipher.update(req.body.data, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-
+  const decrypted = crypto.subtle.decrypt({ name: "AES-CBC", iv }, sharedSecret, req.body.data);
   console.log(JSON.parse(decrypted))
   
   try {
@@ -179,6 +184,5 @@ router.post('/register', async (req, res) => {
     return res.status(500).json({message: "Ocorreu um erro no registo"});
   }
 });
-
 
 module.exports = router;

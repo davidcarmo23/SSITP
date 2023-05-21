@@ -10,56 +10,56 @@ form.addEventListener('submit', async (e) => {
     const certificate = document.getElementById('certificate').value;
 
     // Generate sender's key pair
-    const senderKeyPair = await crypto.subtle.generateKey(
+    const clientKeyPair = await crypto.subtle.generateKey(
         {
         name: 'ECDH',
         namedCurve: 'P-256'
         },
-        true,
+        false,
         ['deriveKey']
     ).catch(err => console.log(err));
 
     // Export sender's public key
     const senderPublicKey = await crypto.subtle.exportKey(
         'spki',
-        senderKeyPair.publicKey
+        clientKeyPair.publicKey
     ).catch(err => console.log(err));
 
+    console.log(senderPublicKey);
+
+    /*
     const senderPrivatekey = await crypto.subtle.exportKey(
         'pkcs8',
-        senderKeyPair.privateKey
+        clientKeyPair.privateKey
     ).catch(err => console.log(err));
+    */
+    
+    const response = await fetch('https://localhost:3000/establishCommon',{
+        method: 'POST',
+        headers:{
+            'Content-Type': 'application/json'
+        },
+        body: {
+            senderPublicKey: senderPublicKey,
+        } 
+        }).catch(err => console.log(err));
 
-    const response = await axios.post('/establishCommon',{
-        clientPubKey: senderPublicKey,
-    })
+
 
     const senderPublicKeyArray = new Uint8Array(response.data.serverPublicKey);
-
-    const importedReceiverPublicKey = await crypto.subtle.importKey(
-        'raw',
-        senderPublicKeyArray,
-        {
-          name: 'ECDH',
-          namedCurve: 'P-256'
-        },
-        false,
-        []
-      ).catch(err => console.log(err));
 
     // Derive shared secret
     const sharedSecret = await crypto.subtle.deriveKey(
         {
         name: 'ECDH',
-        namedCurve: 'P-256',
-        public: importedReceiverPublicKey
+        public: senderPublicKeyArray
         },
-        senderPrivatekey,
+        clientKeyPair.privateKey,
         {
-        name: 'AES-GCM',
+        name: 'AES-CBC',
         length: 256
         },
-        true,
+        false,
         ['encrypt', 'decrypt']
     ).catch(err => console.log(err));
 
@@ -67,10 +67,10 @@ form.addEventListener('submit', async (e) => {
     const data = new TextEncoder().encode(JSON.stringify({ username, email, password }));
     const uuid = response.data.userID;
     const iv = response.data.iv;
-
+        
     const encrypted = await crypto.subtle.encrypt(
         {
-        name: 'AES-GCM',
+        name: 'AES-CBC',
         iv: iv
         },
         sharedSecret,
@@ -83,10 +83,6 @@ form.addEventListener('submit', async (e) => {
     const response2 = await axios.post('/register', {
         userID: uuid,
         data: encrypted
-    }).catch(err => console.log(err));
-    
-
-    
-
+    })
 
 });

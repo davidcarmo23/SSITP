@@ -34,14 +34,6 @@ const UserSchema = new mongoose.Schema({
         required: true
     },
 });
-  
-//validação de certificado guardado na base de dados
-  UserSchema.methods.isValidCertificate = async function(certificate) {
-    const user = this;
-    CertReceived = await bcrypt.hash(certificate, user.Csalt);
-  
-    return await bcrypt.compare(CertReceived, user.certificate);
-  }
 
 const User = mongoose.model("User", UserSchema)
 module.exports = User;

@@ -68,15 +68,4 @@ form.addEventListener('submit', async (e) => {
         encrypted: encrypted,
         iv: iv,
     })
-    
-
 });
-
-
-// Step 6: Generate the shared secret key using your private ephemeral key and the server's public ephemeral key
-// ...
-
-// Step 7: Sign your public ephemeral key using your private long-term key
-// ...
-
-// Step 8: Send the exported keys and signature to the server
