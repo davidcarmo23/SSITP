@@ -1,38 +1,163 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/core.min.js" integrity="sha512-t8vdA86yKUE154D1VlNn78JbDkjv3HxdK/0MJDMBUXUjshuzRgET0ERp/0MAgYS+8YD9YmFwnz6+FWLz1gRZaw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-	<script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.min.js" integrity="sha512-uMtXmF28A2Ab/JJO2t/vYhlaa/3ahUOgj1Zf27M5rOo8/+fcTUVH0/E0ll68njmjrLqOBjXM3V9NiPFL5ywWPQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-	<script type="module" src="teste3.js"></script>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Página de Registo</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/core.min.js" integrity="sha512-t8vdA86yKUE154D1VlNn78JbDkjv3HxdK/0MJDMBUXUjshuzRgET0ERp/0MAgYS+8YD9YmFwnz6+FWLz1gRZaw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/1.4.0/axios.js" integrity="sha512-RjvSEaeDqPCfUVQ9kna2/2OqHz/7F04IOl1/66LmQjB/lOeAzwq7LrbTzDbz5cJzlPNJ5qteNtHR56XaJSTNWw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script type="module" src="teste2.js"></script>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Página de Registo</title>
+  <link rel="stylesheet" href="register.css">
 </head>
 
 <body>
-	<h1>Registo</h1>
-	<form action="/" id="registerForm">
-		<label for="username">Nome de utilizador:</label>
-		<input type="text" id="username" name="username"><br><br>
+  <h1>Registo</h1>
+  <form action="/" id="registerForm">
+    <label for="username">Nome de utilizador:</label>
+    <input type="text" id="username" name="username">
 
-		<label for="email">Email:</label>
-		<input type="email" id="email" name="email"><br><br>
+    <label for="email">Email:</label>
+    <input type="email" id="email" name="email">
 
-		<label for="password">Palavra-passe:</label>
-		<input type="password" id="password" name="password"><br><br>
+    <label for="password">Palavra-passe:</label>
+    <input type="password" id="password" name="password">
 
-		<label for="password2">Confirmar Palavra-passe:</label>
-		<input type="password" id="password2" name="password2"><br><br>
+    <label for="password2">Confirmar Palavra-passe:</label>
+    <input type="password" id="password2" name="password2">
 
-		<label for="certificate">Introduza o seu certificado:</label>
-		<input type="file" id="certificate" name="certificate"><br><br>
+    <label for="generateKey">Gerar Par de Chaves:</label>
+    <input type="radio" id="generateOption" name="keyOption" value="generate" checked>
+    <button type="button" id="generateKey">Gerar</button>
 
-		<input type="submit" value="Submit">Registar</button>
-	</form>
-	<br>
-	<a href="registar.html">Já tenho Conta!</a><br>
-	<a href="redefinir_conta.html">Redefinir Dados de Acesso</a>
-	
+    <button type="button" id="downloadKey" disabled>Download Chave Privada</button>
+    
+    <label for="privateKeyFile">Importar Chave Pública:</label>
+    <input type="radio" id="importOption" name="keyOption" value="import">
+    <input type="file" id="privateKeyFile" name="privateKeyFile">
+
+    <input type="submit" value="Registar">
+  </form>
+
+  <div id="keyView" style="display: none;">
+    <h2>Chaves Geradas:</h2>
+    <label for="publicKey">Chave Pública:</label>
+    <textarea id="publicKey" readonly></textarea>
+
+    <label for="privateKey">Chave Privada:</label>
+    <textarea id="privateKey" readonly></textarea>
+  </div>
+
+  <br>
+  <a href="registar.html">Já tenho Conta!</a><br>
+  <a href="redefinir_conta.html">Redefinir Dados de Acesso</a>
+
+  <script>
+    window.addEventListener('load', function () {
+      const generateOption = document.getElementById('generateOption');
+      const importOption = document.getElementById('importOption');
+      const privateKeyFile = document.getElementById('privateKeyFile');
+      const downloadKey = document.getElementById('downloadKey');
+      const keyView = document.getElementById('keyView');
+      const publicKeyTextArea = document.getElementById('publicKey');
+      const privateKeyTextArea = document.getElementById('privateKey');
+      
+      generateOption.checked = true;
+      privateKeyFile.disabled = true;
+      downloadKey.disabled = true;
+
+      let privateKey = '';
+
+      document.getElementById('generateKey').addEventListener('click', function () {
+        const { privateKey: generatedPrivateKey, publicKey } = generateKeyPair();
+        privateKey = generatedPrivateKey;
+        publicKeyTextArea.value = publicKey;
+        privateKeyTextArea.value = privateKey;
+        privateKeyFile.value = '';
+        downloadKey.disabled = false;
+
+        keyView.style.display = 'block';
+      });
+
+	  function generateKeyPair() {
+  return crypto.subtle.generateKey(
+    {
+      name: 'RSA-OAEP',
+      modulusLength: 4096,
+      publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+      hash: 'SHA-256',
+    },
+    true,
+    ['encrypt', 'decrypt']
+  )
+  .then(function ({ publicKey, privateKey }) {
+    return Promise.all([
+      formatKey(publicKey),
+      formatKey(privateKey)
+    ]);
+  })
+  .then(function ([formattedPublicKey, formattedPrivateKey]) {
+    return {
+      publicKey: formattedPublicKey,
+      privateKey: formattedPrivateKey
+    };
+  });
+}
+
+async function formatKey(key) {
+  const exportedKey = await crypto.subtle.exportKey('spki', key);
+  const exportedKeyBuffer = new Uint8Array(exportedKey);
+  const exportedKeyBase64 = window.btoa(String.fromCharCode.apply(null, exportedKeyBuffer));
+  const pemExportedKey = `-----BEGIN PUBLIC KEY-----\n${chunkString(exportedKeyBase64, 64)}\n-----END PUBLIC KEY-----`;
+  return pemExportedKey;
+}
+
+function chunkString(str, length) {
+  return str.match(new RegExp(`.{1,${length}}`, 'g')).join('\n');
+}
+
+      privateKeyFile.addEventListener('change', function () {
+        const file = this.files[0];
+        const reader = new FileReader();
+        reader.onload = function () {
+          privateKey = this.result;
+          publicKeyTextArea.value = '';
+          privateKeyTextArea.value = privateKey;
+          document.getElementById('generateKey').disabled = true;
+          downloadKey.disabled = true;
+
+          keyView.style.display = 'block';
+        };
+        reader.readAsText(file);
+      });
+
+      document.querySelectorAll('input[name="keyOption"]').forEach(function (option) {
+        option.addEventListener('change', function () {
+          const keyOption = document.querySelector('input[name="keyOption"]:checked').value;
+          if (keyOption === 'generate') {
+            document.getElementById('generateKey').disabled = false;
+            privateKeyFile.disabled = true;
+            downloadKey.disabled = privateKey === '';
+          } else {
+            document.getElementById('generateKey').disabled = true;
+            privateKeyFile.disabled = false;
+            downloadKey.disabled = true;
+          }
+        });
+      });
+
+      downloadKey.addEventListener('click', function () {
+        const privateKeyPEM = formatKey(privateKey);
+        const privateKeyBlob = new Blob([privateKeyPEM], { type: 'text/plain' });
+        const privateKeyURL = URL.createObjectURL(privateKeyBlob);
+        const downloadLink = document.createElement('a');
+        downloadLink.href = privateKeyURL;
+        downloadLink.download = 'private_key.pem';
+        downloadLink.click();
+        URL.revokeObjectURL(privateKeyURL);
+      });
+    });
+  </script>
 </body>
 </html>

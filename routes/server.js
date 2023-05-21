@@ -39,7 +39,7 @@ app.get('../scripts/frontendauth.js', (req, res) => {
   res.set('Content-Type', 'text/javascript');
   res.sendFile(path.resolve('../scripts/frontendauth.js'));
 });
-
+app.use(express.static('../Css_Folder')); // pasta com arquivos estáticos (CSS, imagens, etc.)
 app.use('/', authRoute)
 // rota para página de login
 app.get('/register', (req, res) => {
